@@ -10,17 +10,25 @@ class TaskManager extends StatefulWidget {
 
 class _TaskManagerState extends State<TaskManager> {
   DatabaseReference taskRef = FirebaseDatabase.instance.ref().child('tasks');
+  DatabaseReference checkedRef =
+      FirebaseDatabase.instance.ref().child('checkedItemsList');
   List tasks = [];
+  List checkedTasks = [];
+
+  String item1 = 'Remove Unchecked Tasks';
+  String item2 = 'Remove Checked Tasks';
+  String item3 = 'Remove All';
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
     listenToTasksActivity();
+    listenToCheckedActivity();
   }
 
-  void addItem(String text, bool isChecked) {
-    taskRef.push().set(
+  Future<void> addItem(String text, bool isChecked) async {
+    await taskRef.push().set(
       {
         'text': text,
         'checked': isChecked,
@@ -28,9 +36,19 @@ class _TaskManagerState extends State<TaskManager> {
     );
   }
 
-  void removeItem(id) {
-    print('id = ${id.runtimeType}');
-    taskRef.child(id).remove();
+  Future<void> addCheckedItem(String text, bool isChecked) async {
+    await checkedRef.push().set({
+      'text': text,
+      'checked': isChecked,
+    });
+  }
+
+  Future<void> removeItem(id) async {
+    await taskRef.child(id).remove();
+  }
+
+  Future<void> removeCheckedItem(id) async {
+    await checkedRef.child(id).remove();
   }
 
   void listenToTasksActivity() {
@@ -40,7 +58,7 @@ class _TaskManagerState extends State<TaskManager> {
         'text': event.snapshot.child('text').value,
         'checked': event.snapshot.child('checked').value,
         'controller': TextEditingController(
-          text: event.snapshot.child('text').value.toString(),
+          text: event.snapshot.child('text').value.toString() ?? 'nil',
         ),
       };
       setState(() {
@@ -49,16 +67,47 @@ class _TaskManagerState extends State<TaskManager> {
     });
 
     taskRef.onChildChanged.listen((event) {
-      final item = tasks.firstWhere((task) => task['id'] == event.snapshot.key);
-      print('item** = $item');
+      final task = tasks.firstWhere((task) => task['id'] == event.snapshot.key);
       setState(() {
-        item['checked'] = event.snapshot.child('checked').value;
-        item['text'] = event.snapshot.child('text').value;
+        task['checked'] = event.snapshot.child('checked').value;
+        task['text'] = event.snapshot.child('text').value;
       });
     });
     taskRef.onChildRemoved.listen((event) {
       setState(() {
         tasks.removeWhere((task) => task['id'] == event.snapshot.key);
+      });
+    });
+  }
+
+  void listenToCheckedActivity() {
+    checkedRef.onChildAdded.listen((event) {
+      final item = {
+        'id': event.snapshot.key,
+        'text': event.snapshot.child('text').value,
+        'checked': event.snapshot.child('checked').value,
+        'controller': TextEditingController(
+          text: event.snapshot.child('text').value.toString() ?? 'nil',
+        ),
+      };
+      setState(() {
+        checkedTasks.add(item);
+      });
+    });
+    checkedRef.onChildChanged.listen((event) {
+      final checkedTask = checkedTasks
+          .firstWhere((checkedTask) => checkedTask['id'] == event.snapshot.key);
+
+      setState(() {
+        checkedTask['checked'] = event.snapshot.child('checked').value;
+        checkedTask['text'] = event.snapshot.child('text').value;
+      });
+    });
+
+    checkedRef.onChildRemoved.listen((event) {
+      setState(() {
+        checkedTasks.removeWhere(
+            (checkedTask) => checkedTask['id'] == event.snapshot.key);
       });
     });
   }
@@ -69,10 +118,28 @@ class _TaskManagerState extends State<TaskManager> {
       appBar: AppBar(
         title: const Text('Task Manager'),
         actions: [
-          PopupMenuButton(itemBuilder: (context) {
+          PopupMenuButton(onSelected: (value) {
+            if (value == item1) {
+              taskRef.remove();
+            } else if (value == item2) {
+              checkedRef.remove();
+            } else {
+              taskRef.remove();
+              checkedRef.remove();
+            }
+          }, itemBuilder: (context) {
             return [
-              const PopupMenuItem(
-                child: Text('item1'),
+              PopupMenuItem(
+                value: item1,
+                child: Text(item1),
+              ),
+              PopupMenuItem(
+                value: item2,
+                child: Text(item2),
+              ),
+              PopupMenuItem(
+                value: item3,
+                child: Text(item3),
               ),
             ];
           })
@@ -89,17 +156,22 @@ class _TaskManagerState extends State<TaskManager> {
                   itemBuilder: (context, index) {
                     final task = tasks[index];
                     final taskID = tasks[index]['id'];
-                    print('task = $task');
+
                     return TextField(
                       controller: task['controller'],
                       decoration: InputDecoration(
                         prefixIcon: Checkbox(
                           value: task['checked'] ?? false,
-                          onChanged: (newVal) {
-                            print('new = $newVal');
-                            setState(() {
-                              taskRef.child(taskID).update({'checked': newVal});
-                            });
+                          onChanged: (newVal) async {
+                            await taskRef
+                                .child(taskID)
+                                .update({'checked': newVal});
+                            if (newVal != null && newVal == true) {
+                              await removeItem(taskID);
+                              await addCheckedItem(
+                                  task['controller'].text, true);
+                            }
+                            setState(() {});
                           },
                         ),
                         suffixIcon: IconButton(
@@ -113,6 +185,49 @@ class _TaskManagerState extends State<TaskManager> {
                       ),
                       onChanged: (newVal) {
                         taskRef.child(taskID).update({'text': newVal});
+                      },
+                    );
+                  },
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: checkedTasks.length,
+                  itemBuilder: (context, index) {
+                    final checkedTask = checkedTasks[index];
+                    final checkedTaskID = checkedTask['id'];
+
+                    return TextField(
+                      controller: checkedTask['controller'],
+                      decoration: InputDecoration(
+                        prefixIcon: Checkbox(
+                          value: checkedTask['checked'] ?? false,
+                          onChanged: (newVal) async {
+                            await checkedRef
+                                .child(checkedTaskID)
+                                .update({'checked': newVal});
+                            if (newVal != null && newVal == false) {
+                              await removeCheckedItem(checkedTaskID);
+
+                              await addItem(
+                                  checkedTask['controller'].text, false);
+                            }
+                            setState(() {});
+                          },
+                        ),
+                        suffixIcon: IconButton(
+                          onPressed: () {
+                            setState(() {
+                              removeCheckedItem(checkedTaskID);
+                            });
+                          },
+                          icon: const Icon(Icons.cancel),
+                        ),
+                      ),
+                      onChanged: (newVal) {
+                        checkedRef
+                            .child(checkedTaskID)
+                            .update({'text': newVal});
                       },
                     );
                   },
