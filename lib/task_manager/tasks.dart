@@ -190,6 +190,16 @@ class _TaskManagerState extends State<TaskManager> {
                   },
                 ),
               ),
+              if (checkedTasks.isNotEmpty) ...[
+                const Divider(),
+                const Text(
+                  'Completed Tasks',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
               Expanded(
                 child: ListView.builder(
                   itemCount: checkedTasks.length,
