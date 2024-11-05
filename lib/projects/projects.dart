@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import 'services/navigation.dart';
+import '../services/navigation.dart';
 
 class Projects extends StatefulWidget {
   const Projects({super.key});

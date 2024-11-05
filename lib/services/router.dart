@@ -1,8 +1,8 @@
-import 'package:firebase_series/task_manager/tasks.dart';
 import 'package:get/get.dart';
 
-import '../installed_apps/installed_apps.dart';
-import '../projects.dart';
+import '../projects/installed_apps/installed_apps.dart';
+import '../projects/projects.dart';
+import '../projects/task_manager/tasks.dart';
 import 'navigation.dart';
 
 class AppRouter {

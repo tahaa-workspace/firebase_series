@@ -49,26 +49,30 @@ class _InstalledAppsScreenState extends State<InstalledAppsScreen> {
       appBar: AppBar(
         title: const Text('Upi Apps'),
       ),
-      body: ListView.builder(
-        itemCount: _paymentApps.length,
-        itemBuilder: (context, index) {
-          AppInfo app = _paymentApps[index];
+      body: _paymentApps.isNotEmpty
+          ? ListView.builder(
+              itemCount: _paymentApps.length,
+              itemBuilder: (context, index) {
+                AppInfo app = _paymentApps[index];
 
-          return ListTile(
-            onTap: () async {
-              openApp(app.packageName);
-            },
-            leading: buildAppIcon(app),
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${app.name}\n${app.packageName}'),
-                // if (app.icon != null)
-              ],
+                return ListTile(
+                  onTap: () async {
+                    openApp(app.packageName);
+                  },
+                  leading: buildAppIcon(app),
+                  title: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${app.name}\n${app.packageName}'),
+                      // if (app.icon != null)
+                    ],
+                  ),
+                );
+              },
+            )
+          : const Center(
+              child: CircularProgressIndicator(),
             ),
-          );
-        },
-      ),
     );
   }
 
