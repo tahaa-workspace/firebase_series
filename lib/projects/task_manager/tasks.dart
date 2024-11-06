@@ -11,8 +11,13 @@ class TaskManager extends StatefulWidget {
 class _TaskManagerState extends State<TaskManager> {
   DatabaseReference taskRef = FirebaseDatabase.instance.ref().child('tasks');
 
-  List pendingTasks = [];
-  List completedTasks = [];
+  List tasks = [];
+
+  List get pendingTasks =>
+      tasks.where((task) => task['checked'] == false).toList();
+
+  List get finishedTasks =>
+      tasks.where((task) => task['checked'] == true).toList();
 
   String item1 = 'Remove All';
 
@@ -50,68 +55,26 @@ class _TaskManagerState extends State<TaskManager> {
           'controller': TextEditingController(
             text: event.snapshot.child('text').value.toString() ?? '',
           ),
+          // 'focus': FocusNode(),
         };
-
-        if (task['checked'] == true) {
-          completedTasks.add(task);
-        } else {
-          pendingTasks.add(task);
-        }
+        tasks.add(task);
       });
     });
 
     taskRef.onChildChanged.listen((event) {
       setState(() {
-        if (event.snapshot.child('checked').value == true) {
-          pendingTasks.removeWhere((task) => task['id'] == event.snapshot.key);
-
-          final completedTask = completedTasks.firstWhere(
-              (task) => task['id'] == event.snapshot.key,
-              orElse: () => false);
-
-          if (completedTask != false) {
-            completedTask['checked'] = event.snapshot.child('checked').value;
-            completedTask['text'] = event.snapshot.child('text').value;
-          } else {
-            completedTasks.add({
-              'id': event.snapshot.key,
-              'text': event.snapshot.child('text').value,
-              'checked': event.snapshot.child('checked').value,
-              'controller': TextEditingController(
-                text: event.snapshot.child('text').value.toString() ?? '',
-              ),
-            });
-          }
-        } else {
-          completedTasks
-              .removeWhere((task) => task['id'] == event.snapshot.key);
-
-          final pendingTask = pendingTasks.firstWhere(
-              (task) => task['id'] == event.snapshot.key,
-              orElse: () => false);
-
-          if (pendingTask != false) {
-            pendingTask['checked'] = event.snapshot.child('checked').value;
-            pendingTask['text'] = event.snapshot.child('text').value;
-          } else {
-            pendingTasks.add({
-              'id': event.snapshot.key,
-              'text': event.snapshot.child('text').value,
-              'checked': event.snapshot.child('checked').value,
-              'controller': TextEditingController(
-                text: event.snapshot.child('text').value.toString() ?? '',
-              ),
-            });
-          }
-        }
+        final task = tasks.firstWhere(
+            (task) => task['id'] == event.snapshot.key,
+            orElse: () => null);
+        task['checked'] = event.snapshot.child('checked').value;
+        task['text'] = event.snapshot.child('text').value;
+        task['controller'].text = event.snapshot.child('text').value.toString();
       });
     });
 
     taskRef.onChildRemoved.listen((event) {
       setState(() {
-        pendingTasks.removeWhere((task) => task['id'] == event.snapshot.key);
-
-        completedTasks.removeWhere((task) => task['id'] == event.snapshot.key);
+        tasks.removeWhere((task) => task['id'] == event.snapshot.key);
       });
     });
   }
@@ -142,78 +105,105 @@ class _TaskManagerState extends State<TaskManager> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
-          child: Column(
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  itemCount: pendingTasks.length,
-                  itemBuilder: (context, index) {
-                    final task = pendingTasks[index];
-                    final taskID = pendingTasks[index]['id'];
-
-                    return TextField(
-                      controller: task['controller'],
-                      decoration: InputDecoration(
-                        prefixIcon: Checkbox(
-                          value: task['checked'] ?? false,
-                          onChanged: (newVal) async {
-                            await toggleChecked(taskID, newVal ?? false);
-
-                            setState(() {});
-                          },
-                        ),
-                        suffixIcon: IconButton(
-                          onPressed: () {
-                            setState(() {
-                              removeItem(taskID);
-                            });
-                          },
-                          icon: const Icon(Icons.cancel),
-                        ),
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                for (Map task in pendingTasks)
+                  TextField(
+                    controller: task['controller'],
+                    decoration: InputDecoration(
+                      prefixIcon: Checkbox(
+                        value: task['checked'] ?? false,
+                        onChanged: (newVal) async {
+                          await toggleChecked(task['id'], newVal ?? false);
+                        },
                       ),
-                      onChanged: (newVal) {
-                        taskRef.child(taskID).update({'text': newVal});
-                      },
-                    );
+                      suffixIcon: IconButton(
+                        onPressed: () {
+                          setState(() {
+                            removeItem(task['id']);
+                          });
+                        },
+                        icon: const Icon(Icons.cancel),
+                      ),
+                    ),
+                    onChanged: (newVal) {
+                      setState(() {
+                        taskRef
+                            .child(task['id'])
+                            .update({'text': task['controller'].text});
+                      });
+                    },
+                  ),
+                // Expanded(
+                //   child: ListView.builder(
+                //     itemCount: pendingTasks.length,
+                //     itemBuilder: (context, index) {
+                //       final task = pendingTasks[index];
+                //       final taskID = pendingTasks[index]['id'];
+                //
+                //       return TextField(
+                //         controller: task['controller'],
+                //         decoration: InputDecoration(
+                //           prefixIcon: Checkbox(
+                //             value: task['checked'] ?? false,
+                //             onChanged: (newVal) async {
+                //               await toggleChecked(taskID, newVal ?? false);
+                //
+                //               setState(() {});
+                //             },
+                //           ),
+                //           suffixIcon: IconButton(
+                //             onPressed: () {
+                //               setState(() {
+                //                 removeItem(taskID);
+                //               });
+                //             },
+                //             icon: const Icon(Icons.cancel),
+                //           ),
+                //         ),
+                //         onChanged: (newVal) {
+                //           taskRef.child(taskID).update({'text': newVal});
+                //         },
+                //       );
+                //     },
+                //   ),
+                // ),
+                GestureDetector(
+                  onTap: () {
+                    addItem('', false);
                   },
-                ),
-              ),
-              // InkWell(
-              //     onTap: () {
-              //       addItem('', false);
-              //     },
-              //     child: const Row(
-              //       mainAxisSize: MainAxisSize.min,
-              //       children: [
-              //         Icon(Icons.add),
-              //         Text('Add Item'),
-              //       ],
-              //     )),
-              if (completedTasks.isNotEmpty) ...[
-                const Divider(),
-                const Text(
-                  'Completed Tasks',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                  child: const ListTile(
+                    leading: Icon(Icons.add),
+                    title: Text('Add Task'),
                   ),
                 ),
-              ],
-              Expanded(
-                child: ListView.builder(
-                  itemCount: completedTasks.length,
+                if (finishedTasks.isNotEmpty) ...[
+                  const Divider(),
+                  const Text(
+                    'Completed Tasks',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+                ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: finishedTasks.length,
                   itemBuilder: (context, index) {
-                    final completedTask = completedTasks[index];
-                    final completedTaskID = completedTask['id'];
+                    final finishedTask = finishedTasks[index];
+                    final finishedTaskID = finishedTask['id'];
 
                     return TextField(
-                      controller: completedTask['controller'],
+                      controller: finishedTask['controller'],
+                      // focusNode: finishedTask['focus'],
                       decoration: InputDecoration(
                         prefixIcon: Checkbox(
-                          value: completedTask['checked'] ?? false,
+                          value: finishedTask['checked'] ?? false,
                           onChanged: (newVal) async {
                             await toggleChecked(
-                                completedTaskID, newVal ?? false);
+                                finishedTaskID, newVal ?? false);
 
                             setState(() {});
                           },
@@ -221,29 +211,21 @@ class _TaskManagerState extends State<TaskManager> {
                         suffixIcon: IconButton(
                           onPressed: () {
                             setState(() {
-                              removeItem(completedTaskID);
+                              removeItem(finishedTaskID);
                             });
                           },
                           icon: const Icon(Icons.cancel),
                         ),
                       ),
                       onChanged: (newVal) {
-                        taskRef.child(completedTaskID).update({'text': newVal});
+                        taskRef.child(finishedTaskID).update({'text': newVal});
                       },
                     );
                   },
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          addItem('', false);
-        },
-        child: const Icon(
-          Icons.add,
         ),
       ),
     );
