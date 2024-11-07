@@ -1,3 +1,4 @@
+import 'package:firebase_series/projects/task_manager/boards.dart';
 import 'package:get/get.dart';
 
 import '../projects/installed_apps/installed_apps.dart';
@@ -10,6 +11,10 @@ class AppRouter {
     GetPage(
       name: Routes.projects,
       page: () => const Projects(),
+    ),
+    GetPage(
+      name: Routes.boards,
+      page: () => const Boards(),
     ),
     GetPage(
       name: Routes.taskManager,

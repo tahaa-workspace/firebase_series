@@ -15,7 +15,7 @@ class _ProjectsState extends State<Projects> {
     {
       'title': 'Task Manager',
       'onTap': () {
-        Get.toNamed(Routes.taskManager);
+        Get.toNamed(Routes.boards);
       },
     },
     {
