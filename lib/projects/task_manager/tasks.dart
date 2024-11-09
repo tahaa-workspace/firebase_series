@@ -1,5 +1,6 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class TaskManager extends StatefulWidget {
   const TaskManager({super.key});
@@ -9,7 +10,18 @@ class TaskManager extends StatefulWidget {
 }
 
 class _TaskManagerState extends State<TaskManager> {
-  DatabaseReference taskRef = FirebaseDatabase.instance.ref().child('tasks');
+  DatabaseReference boardsRef = FirebaseDatabase.instance
+      .ref()
+      .child('boards/${Get.arguments['boardID']}');
+
+  DatabaseReference taskRef = FirebaseDatabase.instance
+      .ref()
+      .child('boards/${Get.arguments['boardID']}/tasks');
+
+  String boardID = Get.arguments['boardID'];
+  String boardName = Get.arguments['boardName'];
+
+  TextEditingController titleController = TextEditingController();
 
   List tasks = [];
 
@@ -24,7 +36,7 @@ class _TaskManagerState extends State<TaskManager> {
   @override
   void initState() {
     super.initState();
-
+    titleController.text = boardName;
     listenToTasksActivity();
   }
 
@@ -47,25 +59,26 @@ class _TaskManagerState extends State<TaskManager> {
 
   void listenToTasksActivity() {
     taskRef.onChildAdded.listen((event) {
+      final task = {
+        'id': event.snapshot.key,
+        'text': event.snapshot.child('text').value,
+        'controller': TextEditingController(
+          text: event.snapshot.child('text').value.toString() ?? '',
+        ),
+        'title': event.snapshot.child('title').value,
+        'checked': event.snapshot.child('checked').value,
+      };
+
       setState(() {
-        final task = {
-          'id': event.snapshot.key,
-          'text': event.snapshot.child('text').value,
-          'controller': TextEditingController(
-            text: event.snapshot.child('text').value.toString() ?? '',
-          ),
-          'title': event.snapshot.child('title').value,
-          'checked': event.snapshot.child('checked').value,
-        };
         tasks.add(task);
       });
     });
 
     taskRef.onChildChanged.listen((event) {
+      final task = tasks.firstWhere((task) => task['id'] == event.snapshot.key,
+          orElse: () => null);
+
       setState(() {
-        final task = tasks.firstWhere(
-            (task) => task['id'] == event.snapshot.key,
-            orElse: () => null);
         task['checked'] = event.snapshot.child('checked').value;
         task['text'] = event.snapshot.child('text').value;
         task['controller'].text = event.snapshot.child('text').value.toString();
@@ -83,7 +96,6 @@ class _TaskManagerState extends State<TaskManager> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Task Manager'),
         actions: [
           PopupMenuButton(
             onSelected: (value) {
@@ -120,6 +132,23 @@ class _TaskManagerState extends State<TaskManager> {
           child: SingleChildScrollView(
             child: Column(
               children: [
+                TextField(
+                  controller: titleController,
+                  style: const TextStyle(fontSize: 22),
+                  cursorColor: Colors.black,
+                  cursorWidth: 1.5,
+                  decoration: const InputDecoration(
+                    hintText: 'Title',
+                    hintStyle: TextStyle(color: Colors.grey, fontSize: 22),
+                    border: InputBorder.none,
+                  ),
+                  onChanged: (newValue) {
+                    updateTitle(newValue);
+                  },
+                ),
+                const SizedBox(
+                  height: 15,
+                ),
                 for (Map task in pendingTasks)
                   TextField(
                     controller: task['controller'],
@@ -210,4 +239,8 @@ class _TaskManagerState extends State<TaskManager> {
       ),
     );
   }
+
+  Future<void> updateTitle(String newValue) => boardsRef.update(
+        {'name': newValue},
+      );
 }
